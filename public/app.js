@@ -6,7 +6,9 @@ const cpuLabel = player => `CPU${player.level ? ` · ${player.level.toUpperCase(
 const $ = selector => document.querySelector(selector);
 const icons = () => window.lucide.createIcons();
 const defaults = [['KeyA', 'KeyD'], ['ArrowLeft', 'ArrowRight'], ['KeyJ', 'KeyL'], ['KeyV', 'KeyN'], ['Digit4', 'Digit6'], ['KeyQ', 'KeyE']];
-let roster = [0, 1].map(slot => ({ id: `local-${slot}`, slot, name: NAMES[slot], bot: false, keys: [...defaults[slot]] }));
+// On a touch-only device there's one set of on-screen buttons, so the second player starts as a CPU.
+const touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+let roster = [0, 1].map(slot => ({ id: `local-${slot}`, slot, name: NAMES[slot], bot: slot === 1 && touchOnly, level: 'normal', keys: [...defaults[slot]] }));
 let mode = 'local';
 let game = null;
 let view = null;
@@ -283,7 +285,8 @@ function updateInputs() {
     for (const player of game.players) {
       const local = roster.find(entry => entry.id === player.id);
       if (!player.bot && local) {
-        player.input = Number(pressed.has(local.keys[1]) || (player.id === roster[0].id && touch.has('right'))) - Number(pressed.has(local.keys[0]) || (player.id === roster[0].id && touch.has('left')));
+        const touched = player.id === touchPlayer()?.id;
+        player.input = Number(pressed.has(local.keys[1]) || (touched && touch.has('right'))) - Number(pressed.has(local.keys[0]) || (touched && touch.has('left')));
       }
     }
   }
@@ -312,10 +315,18 @@ function pauseMatch() {
   icons();
 }
 
+// On-screen buttons steer the first human in the local lineup (or yourself online).
+function touchPlayer() {
+  return mode === 'online' ? view?.players.find(player => player.id === myId) : roster.find(player => !player.bot);
+}
+
 function updateTouch() {
   const mobile = matchMedia('(pointer: coarse)').matches || window.innerWidth <= 800;
-  $('#touch-controls').hidden = !mobile || !activeMatch();
-  const player = mode === 'online' ? view?.players.find(player => player.id === myId) : roster[0];
+  const player = touchPlayer();
+  const wasHidden = $('#touch-controls').hidden;
+  $('#touch-controls').hidden = !mobile || !activeMatch() || !player;
+  // Bring the arena and buttons on screen when they appear; on phones they start below the fold.
+  if (wasHidden && !$('#touch-controls').hidden) $('#touch-controls').scrollIntoView({ block: 'end', behavior: 'smooth' });
   $('#touch-player').textContent = player?.name.toUpperCase() ?? '';
 }
 
@@ -405,8 +416,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { pre
 window.addEventListener('resize', updateTouch);
 for (const direction of ['left', 'right']) {
   const button = $(`#touch-${direction}`);
-  button.onpointerdown = event => { event.preventDefault(); button.setPointerCapture(event.pointerId); touch.add(direction); updateInputs(); };
-  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(name, () => { touch.delete(direction); updateInputs(); });
+  // Touch pointers are captured implicitly; explicit capture + lostpointercapture is unreliable on iOS WebKit.
+  button.onpointerdown = event => { event.preventDefault(); touch.add(direction); updateInputs(); };
+  for (const name of ['pointerup', 'pointercancel']) button.addEventListener(name, () => { touch.delete(direction); updateInputs(); });
+  button.addEventListener('contextmenu', event => event.preventDefault());
 }
 
 new p5(sketch => {
