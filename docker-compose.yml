@@ -1,0 +1,10 @@
+services:
+  kurve:
+    build: .
+    container_name: achtung-die-kurve
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+    # Bound to localhost only; cloudflared on the host reaches it via http://localhost:${HOST_PORT:-3000}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
