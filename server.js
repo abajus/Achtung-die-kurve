@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { randomInt, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { Game, STEP } from './public/engine.js';
+import { Game, STEP, BOT_LEVELS } from './public/engine.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const assets = {
@@ -18,6 +18,7 @@ const cleanSettings = settings => ({
   speed: [85, 115, 150, 185].includes(settings?.speed) ? settings.speed : 115,
   target: [5, 10, 15, 20].includes(settings?.target) ? settings.target : 10,
   gaps: settings?.gaps !== false,
+  botLevel: Object.hasOwn(BOT_LEVELS, settings?.botLevel) ? settings.botLevel : 'normal',
 });
 
 export function createGameServer() {
@@ -27,7 +28,7 @@ export function createGameServer() {
     const pathname = decodeURIComponent(url.pathname);
     const filename = assets[pathname] ?? path.join('public', pathname === '/' ? 'index.html' : pathname);
     const absolute = path.resolve(root, filename);
-    if (!absolute.startsWith(`${root}${path.sep}`) || (!assets[pathname] && !absolute.startsWith(`${root}/public/`))) {
+    if (!absolute.startsWith(`${root}${path.sep}`) || (!assets[pathname] && !absolute.startsWith(path.join(root, 'public', path.sep)))) {
       response.writeHead(403).end();
       return;
     }
@@ -61,7 +62,7 @@ export function createGameServer() {
       if (room.host === socket.playerId) room.host = room.members[0].id;
       if (room.game) {
         const player = room.game.players.find(entry => entry.id === socket.playerId);
-        if (player) { player.bot = true; player.input = 0; }
+        if (player) Object.assign(player, { bot: true, level: room.settings.botLevel, input: 0 });
       }
       lobby(room);
     }
@@ -128,7 +129,7 @@ export function createGameServer() {
         const players = room.members.map(({ id, name, slot }) => ({ id, name, slot }));
         const used = new Set(players.map(player => player.slot));
         for (const slot of [0, 1, 2, 3, 4, 5].filter(slot => !used.has(slot)).slice(0, room.bots)) {
-          players.push({ id: `bot-${slot}`, name: `CPU ${slot + 1}`, slot, bot: true });
+          players.push({ id: `bot-${slot}`, name: `CPU ${slot + 1}`, slot, bot: true, level: room.settings.botLevel });
         }
         if (players.length < 2) return send(socket, { type: 'error', message: 'Add a bot or invite another player.' });
         room.game = new Game(players, room.settings);

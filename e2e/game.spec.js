@@ -63,7 +63,7 @@ test('mobile fits its viewport and supports touch steering', async ({ browser },
   const overflow = await page.locator('#overlay-title').evaluate(element => element.scrollWidth > element.clientWidth);
   expect(overflow).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('mobile.png'), fullPage: true });
-  await page.getByRole('combobox', { name: 'Rose type' }).selectOption('bot');
+  await page.getByRole('combobox', { name: 'Rose type' }).selectOption('hard');
   await page.locator('#start-button').click();
   await page.clock.runFor(3500);
   await expect(page.locator('#touch-controls')).toBeVisible();

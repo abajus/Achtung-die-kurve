@@ -1,4 +1,7 @@
-import { Game, WIDTH, HEIGHT, COLORS, NAMES, STEP } from './engine.js';
+import { Game, WIDTH, HEIGHT, COLORS, NAMES, STEP, BOT_LEVELS } from './engine.js';
+
+const LEVELS = Object.keys(BOT_LEVELS);
+const cpuLabel = player => `CPU${player.level ? ` · ${player.level.toUpperCase()}` : ''}`;
 
 const $ = selector => document.querySelector(selector);
 const icons = () => window.lucide.createIcons();
@@ -27,7 +30,7 @@ let demoTicks = 0;
 let lastTurn = 0;
 
 function settings() {
-  return { speed: Number($('#speed').value), target: Number($('#target').value), gaps: $('#gaps').checked };
+  return { speed: Number($('#speed').value), target: Number($('#target').value), gaps: $('#gaps').checked, botLevel: $('#bot-level').value };
 }
 
 function toast(message) {
@@ -68,11 +71,11 @@ function renderRoster() {
     const playing = Boolean(view);
     const local = roster.find(entry => entry.id === player.id);
     const color = player.color ?? COLORS[slot];
-    const label = mode === 'online' ? player.id === myId ? 'YOU' : player.bot ? 'CPU' : room?.host === player.id ? 'HOST' : 'ONLINE' : '';
+    const label = mode === 'online' ? player.id === myId ? 'YOU' : player.bot ? cpuLabel(player) : room?.host === player.id ? 'HOST' : 'ONLINE' : '';
     return `<div class="player-row ${playing && !player.alive ? 'dead' : ''}" style="--player-color:${color}">
       <span class="player-color"></span><div class="player-info"><input class="player-name" aria-label="Player ${slot + 1} name" maxlength="18" value="${escapeText(player.name)}" data-name="${player.id}" ${playing || mode === 'online' ? 'readonly' : ''}>
-      ${mode === 'local' && !playing ? `<select class="player-type" aria-label="${escapeText(player.name)} type" data-type="${player.id}"><option value="human" ${!player.bot ? 'selected' : ''}>HUMAN</option><option value="bot" ${player.bot ? 'selected' : ''}>CPU</option></select>` : `<span class="player-type">${playing ? player.alive ? player.bot ? 'CPU · IN PLAY' : 'IN PLAY' : 'OUT' : label}</span>`}</div>
-      <div class="player-controls">${playing ? `<span class="player-score" style="color:${color === COLORS[0] ? '#71812d' : '#5f6e56'}">${String(player.score).padStart(2, '0')}</span>` : player.bot ? '<span class="bot-label"><i data-lucide="bot"></i>CPU</span>' : (mode === 'local' ? local.keys : ['ArrowLeft', 'ArrowRight']).map((key, index) => `<button class="key" data-key="${player.id}" data-index="${index}" title="${mode === 'local' ? 'Change key' : 'Turn'} ${index ? 'right' : 'left'}" aria-label="${escapeText(player.name)} ${index ? 'right' : 'left'} key" ${mode === 'online' ? 'disabled' : ''}>${keyLabel(key)}</button>`).join('')}${!playing && mode === 'local' && roster.length > 2 ? `<button class="remove-player" data-remove="${player.id}" title="Remove player" aria-label="Remove ${escapeText(player.name)}"><i data-lucide="x"></i></button>` : ''}</div></div>`;
+      ${mode === 'local' && !playing ? `<select class="player-type" aria-label="${escapeText(player.name)} type" data-type="${player.id}">${['human', ...LEVELS].map(value => `<option value="${value}" ${(player.bot ? player.level ?? 'normal' : 'human') === value ? 'selected' : ''}>${value === 'human' ? 'HUMAN' : `CPU · ${value.toUpperCase()}`}</option>`).join('')}</select>` : `<span class="player-type">${playing ? player.alive ? player.bot ? `${cpuLabel(player)} · IN PLAY` : 'IN PLAY' : 'OUT' : label}</span>`}</div>
+      <div class="player-controls">${playing ? `<span class="player-score" style="color:${color === COLORS[0] ? '#71812d' : '#5f6e56'}">${String(player.score).padStart(2, '0')}</span>` : player.bot ? `<span class="bot-label"><i data-lucide="bot"></i>${cpuLabel(player)}</span>` : (mode === 'local' ? local.keys : ['ArrowLeft', 'ArrowRight']).map((key, index) => `<button class="key" data-key="${player.id}" data-index="${index}" title="${mode === 'local' ? 'Change key' : 'Turn'} ${index ? 'right' : 'left'}" aria-label="${escapeText(player.name)} ${index ? 'right' : 'left'} key" ${mode === 'online' ? 'disabled' : ''}>${keyLabel(key)}</button>`).join('')}${!playing && mode === 'local' && roster.length > 2 ? `<button class="remove-player" data-remove="${player.id}" title="Remove player" aria-label="Remove ${escapeText(player.name)}"><i data-lucide="x"></i></button>` : ''}</div></div>`;
   }).join('');
   $('#add-player').hidden = mode === 'online' || Boolean(view);
   $('#add-player').disabled = roster.length >= 6;
@@ -81,7 +84,7 @@ function renderRoster() {
 
 function updateSettingsLock() {
   const locked = activeMatch() || (mode === 'online' && !isHost());
-  for (const selector of ['#speed', '#target', '#gaps', '#online-bots']) $(selector).disabled = Boolean(locked);
+  for (const selector of ['#speed', '#target', '#gaps', '#online-bots', '#bot-level']) $(selector).disabled = Boolean(locked);
 }
 
 function setOverlay(kicker, title, button, caption, disabled = false) {
@@ -98,6 +101,7 @@ function renderLobby() {
   $('#room-entry').hidden = Boolean(room);
   $('#room-active').hidden = !room;
   $('#online-bots-row').hidden = !room;
+  $('#bot-level-row').hidden = !room;
   if (room) {
     $('#active-code').textContent = room.code;
     $('#room-role').textContent = isHost() ? 'You are the host.' : 'Waiting for the host to start.';
@@ -105,6 +109,7 @@ function renderLobby() {
     $('#target').value = room.settings.target;
     $('#gaps').checked = room.settings.gaps;
     $('#online-bots').value = room.bots;
+    $('#bot-level').value = room.settings.botLevel;
     $('#connection-label').innerHTML = `<span class="live-dot"></span> ROOM ${room.code} / ${room.players.length} CONNECTED`;
   } else {
     $('#connection-label').innerHTML = `<span class="live-dot"></span> ${mode === 'local' ? 'OFFLINE IS THE NEW TOGETHER' : 'YOUR NEXT RIVAL IS A ROOM AWAY'}`;
@@ -329,13 +334,16 @@ $('#player-list').addEventListener('change', event => {
   const player = roster.find(entry => entry.id === (event.target.dataset.name ?? event.target.dataset.type));
   if (!player || mode !== 'local' || view) return;
   if (event.target.dataset.name) player.name = event.target.value.trim() || NAMES[player.slot];
-  if (event.target.dataset.type) player.bot = event.target.value === 'bot';
+  if (event.target.dataset.type) {
+    player.bot = event.target.value !== 'human';
+    if (player.bot) player.level = event.target.value;
+  }
   renderRoster();
 });
 $('#add-player').onclick = () => {
   const slot = [0, 1, 2, 3, 4, 5].find(slot => !roster.some(player => player.slot === slot));
   if (slot === undefined) return;
-  roster.push({ id: `local-${slot}`, slot, name: NAMES[slot], bot: true, keys: [...defaults[slot]] });
+  roster.push({ id: `local-${slot}`, slot, name: NAMES[slot], bot: true, level: 'normal', keys: [...defaults[slot]] });
   renderRoster();
 };
 $('#start-button').onclick = () => paused ? pauseMatch() : startMatch();
@@ -355,7 +363,7 @@ $('#copy-room').onclick = async () => {
   try { await navigator.clipboard.writeText(`${location.origin}/?room=${room.code}`); toast('Invite link copied.'); }
   catch { toast(`Room code: ${room.code}`); }
 };
-for (const selector of ['#speed', '#target', '#gaps', '#online-bots']) $(selector).onchange = () => {
+for (const selector of ['#speed', '#target', '#gaps', '#online-bots', '#bot-level']) $(selector).onchange = () => {
   if (mode === 'online' && isHost()) send({ type: 'settings', settings: settings(), bots: Number($('#online-bots').value) });
   else renderLobby();
 };
