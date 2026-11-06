@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Game, STEP, BOT_LEVELS } from './public/engine.js';
 
@@ -34,9 +34,16 @@ export function createGameServer() {
     }
     try {
       const content = await readFile(absolute);
+      const etag = `"${createHash('sha1').update(content).digest('base64url')}"`;
+      // no-cache: browsers and Cloudflare must revalidate, so a deploy is picked up on the next load.
+      const headers = { 'Cache-Control': 'no-cache', ETag: etag, 'X-Content-Type-Options': 'nosniff' };
+      if (request.headers['if-none-match'] === etag) {
+        response.writeHead(304, headers).end();
+        return;
+      }
       response.writeHead(200, {
+        ...headers,
         'Content-Type': `${types[path.extname(absolute)] ?? 'application/octet-stream'}; charset=utf-8`,
-        'X-Content-Type-Options': 'nosniff',
       });
       response.end(content);
     } catch {
