@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#efefec">
+  <meta name="description" content="Achtung, die Kurve! A classic curve-survival game for your browser. Play together on one keyboard or in an online room.">
+  <title>Achtung, die Kurve! — The curve never forgives.</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"matter-js":"/matter.js"}}</script>
+  <script src="/vendor/matter.js"></script>
+  <script src="/vendor/p5.js"></script>
+  <script src="/vendor/lucide.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Achtung die Kurve home"><span class="brand-mark">a<span>!</span></span><span>achtung,<br>die kurve<span class="brand-dot">.</span></span></a>
+    <div class="header-right"><span class="edition">A CLASSIC, RECONNECTED.</span><span class="header-rule"></span><button class="icon-button" id="sound-button" aria-label="Enable sound" title="Enable sound"><i data-lucide="volume-x"></i></button><button class="icon-button" id="fullscreen-button" aria-label="Enter fullscreen" title="Enter fullscreen"><i data-lucide="maximize"></i></button><a class="icon-button" href="#rules" aria-label="Game rules" title="Game rules"><i data-lucide="circle-help"></i></a></div>
+  </header>
+
+  <main>
+    <div class="page-heading"><div><p class="eyebrow"><span class="live-dot"></span> SAME GAME. NEW CONNECTIONS.</p><h1>Keep your head.<br class="mobile-break"> Watch your tail.</h1></div><div class="mode-switch" role="tablist" aria-label="Multiplayer mode"><button id="local-tab" role="tab" aria-selected="true"><i data-lucide="keyboard"></i>Local play</button><button id="online-tab" role="tab" aria-selected="false"><i data-lucide="globe-2"></i>Online room</button></div></div>
+
+    <div class="game-layout">
+      <section class="arena-section" aria-label="Game arena">
+        <div class="arena-topline"><div class="arena-label"><span class="small-cross">+</span> ARENA <span id="round-label">01</span></div><span class="arena-status" id="arena-status"><span></span> READY TO ROLL</span></div>
+        <div class="arena-shell" id="arena-shell">
+          <div id="canvas-container"></div>
+          <div class="arena-corner top-left"></div><div class="arena-corner top-right"></div><div class="arena-corner bottom-left"></div><div class="arena-corner bottom-right"></div>
+          <div class="arena-watermark">ACHTUNG / 1995</div>
+          <div id="arena-overlay" class="arena-overlay">
+            <div class="overlay-kicker" id="overlay-kicker">NO BRAKES. NO SECOND CHANCES.</div>
+            <h2 id="overlay-title">Achtung,<br>die Kurve<span>!</span></h2>
+            <button class="start-button" id="start-button"><i data-lucide="play" fill="currentColor"></i><span>Start match</span><span class="button-shortcut">↵</span></button>
+            <p class="overlay-caption" id="overlay-caption">ROUND 01 / FIRST TO 10</p>
+          </div>
+          <div id="countdown" class="countdown" hidden aria-live="polite"></div>
+          <button id="pause-button" class="arena-pause icon-button" aria-label="Pause match" title="Pause match" hidden><i data-lucide="pause"></i></button>
+        </div>
+        <div class="arena-bottomline"><span id="connection-label"><span class="live-dot"></span> OFFLINE IS THE NEW TOGETHER</span><button class="text-button" id="reset-button"><i data-lucide="rotate-ccw"></i> Reset match</button></div>
+        <div class="touch-controls" id="touch-controls" hidden><button id="touch-left" aria-label="Turn left"><i data-lucide="arrow-left"></i></button><span id="touch-player">CITRON</span><button id="touch-right" aria-label="Turn right"><i data-lucide="arrow-right"></i></button></div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="online-panel" id="online-panel" hidden>
+          <div id="room-entry"><div class="section-title"><h2>Find your people</h2><i data-lucide="radio"></i></div><label class="field-label" for="online-name">YOUR NAME</label><input id="online-name" maxlength="18" value="Player" autocomplete="nickname"><button class="primary-button" id="create-room"><i data-lucide="plus"></i>Create a room</button><div class="join-row"><input id="room-code" placeholder="ROOM CODE" maxlength="5" aria-label="Room code" autocomplete="off"><button class="icon-button" id="join-room" title="Join room" aria-label="Join room"><i data-lucide="arrow-right"></i></button></div></div>
+          <div id="room-active" hidden><div class="section-title"><h2>Your room</h2><button class="icon-button" id="leave-room" aria-label="Leave room" title="Leave room"><i data-lucide="log-out"></i></button></div><button id="copy-room" class="room-code" title="Copy invite link"><span id="active-code"></span><i data-lucide="copy"></i></button><p id="room-role" class="muted-text"></p></div>
+        </section>
+        <section class="roster-section">
+          <div class="section-title"><h2>The lineup<span class="small-dot">.</span></h2><span class="mono-label" id="player-count">02 <span>/ 06</span></span></div>
+          <div id="player-list"></div>
+          <button class="add-player" id="add-player"><i data-lucide="plus"></i>Add player<span>6 MAX</span></button>
+        </section>
+        <section class="settings-section">
+          <div class="section-title"><h2>House rules<span class="small-dot">.</span></h2><i data-lucide="sliders-horizontal"></i></div>
+          <div class="setting-row"><label for="speed">Game speed</label><select id="speed"><option value="85">Unhurried</option><option value="115" selected>Classic</option><option value="150">Fast</option><option value="185">Frantic</option></select></div>
+          <div class="setting-row"><label for="target">Play to</label><select id="target"><option value="5">5 points</option><option value="10" selected>10 points</option><option value="15">15 points</option><option value="20">20 points</option></select></div>
+          <div class="setting-row"><label for="gaps">Random gaps</label><input class="toggle" type="checkbox" id="gaps" checked></div>
+          <div id="online-bots-row" class="setting-row" hidden><label for="online-bots">CPU players</label><select id="online-bots"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+        </section>
+        <div class="sidebar-footnote"><span class="tiny-asterisk">✳</span><p>A little nostalgia.<br>A healthy amount of chaos.</p></div>
+      </aside>
+    </div>
+
+    <section class="rules" id="rules"><div class="rules-heading"><span class="eyebrow">THE SHORT VERSION</span><h2>Simple rules.<br>Complicated friendships.</h2></div><div class="rule"><span class="rule-number">01 /</span><h3>Steer clear.</h3><p>Turn left or right. Hit a wall or any trail, including your own, and you're out.</p></div><div class="rule"><span class="rule-number">02 /</span><h3>Mind the gap.</h3><p>Trails have random breaks. A small opening can be your great escape.</p></div><div class="rule"><span class="rule-number">03 /</span><h3>Outlast everyone.</h3><p>Earn a point for every rival you outlive. First to the target wins, with no ties.</p></div></section>
+  </main>
+  <footer><span>ACHTUNG, DIE KURVE!</span><span>1995 SPIRIT. BROWSER EDITION.</span><span>BUILT WITH <b>p5.js</b><span class="footer-cross">+</span></span></footer>
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
